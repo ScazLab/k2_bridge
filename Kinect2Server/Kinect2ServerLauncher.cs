@@ -24,6 +24,7 @@ TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF TH
 ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ********************************************************************************************************/
 using System;
+using System.ServiceProcess;
 using System.Windows.Forms;
 
 namespace PersonalRobotics.Kinect2Server

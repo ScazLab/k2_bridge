@@ -24,10 +24,10 @@ TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF TH
 ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ********************************************************************************************************/
 using System;
-using System.Collections;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
 using System.Threading;
 
 namespace PersonalRobotics.Kinect2Server
@@ -35,19 +35,14 @@ namespace PersonalRobotics.Kinect2Server
     /// <summary>
     /// Contains bookkeeping information for a TCP socket client.
     /// </summary>
-    public sealed class Client : IDisposable
+    public class Client : IDisposable
     {
-        public const int BufferSize = 32;
-        public readonly byte[] buffer = new byte[BufferSize];
-        public readonly EndPoint endpoint;
         public readonly Socket socket;
         public readonly Semaphore sends;
-        public readonly StringBuilder stringBuffer = new StringBuilder();
 
         public Client(Socket socket, int concurrentSends)
         {
             this.socket = socket;
-            this.endpoint = socket.RemoteEndPoint;
             this.sends = new Semaphore(concurrentSends, concurrentSends);
         }
 
@@ -61,21 +56,18 @@ namespace PersonalRobotics.Kinect2Server
     /// <summary>
     /// Defines a network connector that allows multiple subscribers to a binary data stream.
     /// </summary>
-    public sealed class AsyncNetworkConnector : IDisposable
+    public class AsyncNetworkConnector : IDisposable
     {
-        ArrayList connectedClients = ArrayList.Synchronized(new ArrayList());
-
+        public SynchronizedCollection<Client> connectedClients =
+            new SynchronizedCollection<Client>();
+        
         public readonly int port;
-        readonly int concurrentSends;
-        readonly Socket listenerSocket;
+        protected readonly Socket listenerSocket;
 
-        public bool HasClients { get { return connectedClients.Count > 0; } }
-
-        public AsyncNetworkConnector(int port, int concurrentSends = 3)
+        public AsyncNetworkConnector(int port, int concurrentSends = 34)
         {
             this.listenerSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             this.port = port;
-            this.concurrentSends = concurrentSends;
         }
 
         public void Listen()
@@ -92,66 +84,13 @@ namespace PersonalRobotics.Kinect2Server
             {
                 AsyncNetworkConnector connector = (AsyncNetworkConnector)ar.AsyncState;
                 Socket socket = connector.listenerSocket.EndAccept(ar);
-                var client = new Client(socket, this.concurrentSends);
-
-                socket.BeginReceive(client.buffer, 0, Client.BufferSize, 0,
-                    new AsyncCallback(OnReceive), client);
-                connector.connectedClients.Add(client);
+                connector.connectedClients.Add(new Client(socket, 3));
+                Console.WriteLine("Added socket to client list"); // TODO: put this in the event log instead.
                 connector.listenerSocket.BeginAccept(new AsyncCallback(OnAccept), connector);
-
-                // TODO: put this in the event log instead.
-                Console.WriteLine("Connected to: " + client.endpoint);
             }
-            catch (SocketException e)
+            catch (Exception e)
             {
-                Console.WriteLine("Error accepting client: " + e);
-            }
-            catch (System.ObjectDisposedException)
-            {
-                // Do nothing, this is probably just a shutdown race condition on socket cleanup.
-            }
-        }
-
-        public static void OnReceive(IAsyncResult ar)
-        {
-            String content = String.Empty;
-            Client client = (Client)ar.AsyncState;
-
-            // Read data from the client socket. 
-            if (!client.socket.Connected)
-                return;
-
-            try
-            {
-                // Receive new data from the socket.
-                int bytesRead = client.socket.EndReceive(ar);
-                if (bytesRead > 0)
-                {
-                    // Store the data received so far.
-                    client.stringBuffer.Append(Encoding.ASCII.GetString(client.buffer, 0, bytesRead));
-
-                    // Check for a newline.
-                    content = client.stringBuffer.ToString();
-                    var newlineIdx = content.IndexOf("\n");
-                    if (newlineIdx >= 0)
-                    {
-                        // Put the remaining buffer back in the StringBuilder.
-                        client.stringBuffer.Clear();
-                        client.stringBuffer.Append(content.Substring(newlineIdx + 1));
-
-                        // If we receive the word "OK", reset one of the send tokens.
-                        if (content.Substring(0, newlineIdx).IndexOf("OK") >= 0)
-                            client.sends.Release();
-                    }
-                }
-
-                // Queue the next line.
-                client.socket.BeginReceive(client.buffer, 0, Client.BufferSize, 0,
-                    new AsyncCallback(OnReceive), client);
-            }
-            catch (SocketException)
-            {
-                // Do nothing.
+                Console.WriteLine("Error in startListeningCallBack: " + e.ToString());
             }
         }
 
@@ -163,11 +102,12 @@ namespace PersonalRobotics.Kinect2Server
                 if (client.socket.Connected)
                 {
                     client.socket.EndSend(ar);
+                    client.sends.Release();
                 }
             }
-            catch (SocketException)
+            catch (Exception e)
             {
-                Console.WriteLine("Disconnected from: " + client.endpoint);
+                Console.WriteLine("Error in sendCallBack: " + e.ToString());
                 client.socket.Close();
                 this.connectedClients.Remove(client);
             }
@@ -178,12 +118,19 @@ namespace PersonalRobotics.Kinect2Server
             try
             {
                 if (client.sends.WaitOne(0))
-                    client.socket.BeginSend(data, 0, data.Length, SocketFlags.None,
-                        new AsyncCallback(this.OnSend), client);
+                {
+                    client.socket.BeginSend(data, 0, data.Length, 0, new AsyncCallback(this.OnSend), client);
+                    Console.WriteLine("Sending successfully");
+                }
+                else
+                {
+                    Console.WriteLine("Skipping send.");
+                }
+
             }
-            catch (SocketException)
+            catch (Exception e)
             {
-                Console.WriteLine("Disconnected from: " + client.endpoint);
+                Console.WriteLine("Error in send: " + e.ToString());
                 client.socket.Close();
                 this.connectedClients.Remove(client);
             }
@@ -191,14 +138,16 @@ namespace PersonalRobotics.Kinect2Server
 
         public void Broadcast(byte[] data)
         {
-            // Send the data to every connected client.
-            lock (this.connectedClients.SyncRoot)
+            try
             {
-                // Copy the array here, since some clients might get dropped during iteration.
-                foreach (Client client in this.connectedClients.ToArray())
+                foreach (Client client in this.connectedClients)
                 {
                     this.Send(client, data);
                 }
+            }
+            catch
+            {
+
             }
         }
 
@@ -208,35 +157,26 @@ namespace PersonalRobotics.Kinect2Server
             this.listenerSocket.Close();
 
             // Close each client socket.
-            lock (this.connectedClients.SyncRoot)
+            foreach (Client client in this.connectedClients)
             {
-                foreach (Client client in this.connectedClients)
+                try
                 {
-                    try
-                    {
-                        client.socket.Shutdown(SocketShutdown.Both);
-                        client.socket.Close();
-                    }
-                    catch (SocketException e)
-                    {
-                        Console.WriteLine("Error closing socket: " + e);
-                    }
+                    client.socket.Shutdown(SocketShutdown.Both);
+                    client.socket.Close();
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("Error in closing: " + e.ToString());
                 }
             }
         }
 
         public void Dispose()
         {
-            // Dispose of the main listener socket.
             this.listenerSocket.Dispose();
-
-            // Dispose of each client socket.
-            lock (this.connectedClients.SyncRoot)
+            foreach (Client client in this.connectedClients)
             {
-                foreach (Client client in this.connectedClients)
-                {
-                    client.Dispose();
-                }
+                client.Dispose();
             }
         }
     }

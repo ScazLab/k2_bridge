@@ -187,5 +187,3 @@ UpgradeLog*.htm
 
 # Microsoft Fakes
 FakesAssemblies/
-/packages
-Thumbs.db
