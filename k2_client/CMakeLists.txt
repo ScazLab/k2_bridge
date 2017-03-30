@@ -34,8 +34,6 @@ add_message_files(FILES
     Lean.msg
     Body.msg
     Face.msg
-    PersonMessage.msg
-    PersonArray.msg
 )
 
 generate_messages(DEPENDENCIES
