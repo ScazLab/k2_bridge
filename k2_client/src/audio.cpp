@@ -106,6 +106,7 @@ int main(int argc, char *argv[])
         audio.volume = node["Volume"].as<float>();
         audio.relativeTime = node["RelativeTime"].as<float>();
         audio.time = node["Time"].as<float>();
+        audio.ipAddress = server_host;
 
         // Send out the resulting message and request a new message.
         audioPublisher.publish(audio);
