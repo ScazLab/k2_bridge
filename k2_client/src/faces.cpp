@@ -135,6 +135,8 @@ int main(int argc, char *argv[])
         face.mouthOpen = node["Properties"]["MouthOpen"].as<long>();
         face.mouthMoved = node["Properties"]["MouthMoved"].as<long>();
         face.lookingAway = node["Properties"]["LookingAway"].as<long>();
+     
+        face.ipAddress = server_host;
         
 
         //ROS_FATAL("Data Received");
