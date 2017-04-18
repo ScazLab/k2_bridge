@@ -122,6 +122,7 @@ int main(int argc, char *argv[])
                 body.handRightState =            body_node["HandRightState"].as<int>();
                 body.handLeftConfidence =        body_node["HandLeftConfidence"].as<int>();
                 body.handLeftState =             body_node["HandLeftState"].as<int>();
+                body.ipAddress = server_host;
 
                 for (const std::string joint_name : joint_names)
                 {
