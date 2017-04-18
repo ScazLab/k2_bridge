@@ -10,3 +10,4 @@ float32 handLeftConfidence
 int32 handLeftState
 JointOrientationAndType[] jointOrientations
 JointPositionAndState[] jointPositions
+string ipAddress
