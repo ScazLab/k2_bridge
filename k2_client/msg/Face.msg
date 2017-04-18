@@ -14,3 +14,4 @@ geometry_msgs/Point eyeLeft
 geometry_msgs/Point nose
 geometry_msgs/Point mouthRight
 geometry_msgs/Point mouthLeft
+string ipAddress
