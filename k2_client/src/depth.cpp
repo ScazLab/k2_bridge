@@ -47,7 +47,8 @@ unsigned char frame_buffer[frame_size];
 int main(int argc, char *argv[])
 {
     // Initialize this ROS node.
-    ros::init(argc, argv, "k2_depth", ros::init_options::AnonymousName);
+    // ros::init(argc, argv, "k2_depth", ros::init_options::AnonymousName);
+    ros::init(argc, argv, ros::this_node::getName(), ros::init_options::AnonymousName);
     ros::NodeHandle n("~");
 
     // Retrieve the hostname and port of the k2_server.

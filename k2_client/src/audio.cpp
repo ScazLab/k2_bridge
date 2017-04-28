@@ -37,7 +37,9 @@ using boost::asio::ip::tcp;
 int main(int argc, char *argv[])
 {
     // Initialize this ROS node.
-    ros::init(argc, argv, "k2_audio", ros::init_options::AnonymousName);
+    // ros::init(argc, argv, "k2_audio", ros::init_options::AnonymousName);
+    ros::init(argc, argv, ros::this_node::getName(), ros::init_options::AnonymousName);
+
     ros::NodeHandle n("~");
 
     // Retrieve the hostname and port of the k2_server.
