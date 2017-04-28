@@ -60,7 +60,7 @@ Make sure the dockerfile includes:
 4. Get your current absolute path (`pwd`)
 5. Run your docker container with the following command (remember to put in your absolute path):
    
-   `docker run -it -v [absolute_path]/[your workspace]:/root/[your workspace] [name_of_docker_container]`
+   `docker run -it -v [absolute_path]/[name_of_workspace]:/root/[name_of_workspace] [name_of_docker_container]`
 
 6. Run the following commands:
 
@@ -84,16 +84,20 @@ Make sure the dockerfile includes:
 
 
 ## Running the program
-1. Check the ip address of the windows computer by running `ipconfig` in a new terminal on the windows computer. 
-2. Navigate to the launch file on the linux computer, located in `launch`
-3. Change the value parameter of each node to be the ip address of the windows computer, and save the file
-4. In a new terminal window, run `roslaunch k2_client k2_client.launch`
+1. Start running 'roscore' by inputting the command `roscore` in the first terminal window on the client side. Only one instance of roscore needs to be runnning for the project.
+2. Check the ip address of each windows computer by running `ipconfig` in a new terminal on each windows computer. 
+3. Navigate to the launch files on the linux computer, located in `launch`
+   3a. They should be named: "k2_client1.launch" and "k2_client2.launch"
+4. Each file is associated with one Windows machine. Change the value parameter of each node to be the ip address of the respective windows computer, and save the file
+5. In a new terminal window, run `roslaunch k2_client k2_client.launch`
 
 If the connection is successful, the Windows computer output should indicated that it has added the client and is successfully sending messages
 
 **Make sure that the [server program](https://github.com/ScazLab/k2_server) is running on the windows side**
 
-##Translating incoming JSON messages to ROS messages
+To do this, open up the 'Kinect2Server.sln' file found within "Documents/building_trust_2016/k2_bridge/k2_server" on the Windows machine. It should open Visual Studio 2013 to a page where you can click "Start" on the top of the page.
+
+## Translating incoming JSON messages to ROS messages
 There are six programs that each listen to a port for incoming kinect data on the linux computer. Bodies.cpp, Audio.cpp, and Faces.cpp are used in this program. They listen on ports 9003, 9004, and 9005 for body, audio, and face data, and once data is received, the data is converted to a ROS Node and published on individual topics. The message format is determined by body, audio, and face messages. Port specifications can be changed on the windows computer in `Settings.Designer.cs` and the ports can be changed on the linux side from bodies.cpp, audio.cpp, and faces.cpp.
 
 Every time changes are made to any of the src files or the msg files, `catkin_make` the workspace
@@ -101,7 +105,18 @@ Every time changes are made to any of the src files or the msg files, `catkin_ma
 # Data Parsing
 
 ### Running Data Parser:
-Data parser subscribes to the audio, body, and face topics, parses through the data and calculates certain behaviors, then publishes a message on a new topic. To run data-parser.py, navigate to scripts, `chmod +x data-parser.py`. Now the program can be run from the workspace. `cd ..` then `rosrun k2_client data-parser.py`
+Data parser subscribes to the audio, body, and face topics, parses through the data and calculates certain behaviors, then publishes a message on a new topic. To run data-parser.py, from your workspace run, `chmod +x src/trust_nonverbal_behavior_recognition/scripts/data-parser1.py` and `chmod +x src/trust_nonverbal_behavior_recognition/scripts/data-parser2.py`. The two data-parsers correspond to the two different clients it is reading data from. Now the programs can be run from the workspace. Run `rosrun trust_nonverbal_behavior_recognition data-parser1.py` and `rosrun trust_nonverbal_behavior_recognition data-parser2.py` in two separate terminal windows once the server side and client side are running.
+
+### Running Read Bag:
+Data parser will publish the data to a rosbag. To read a rosbag, first you must reindex the rosbag you wish to read. To do this run `rosbag reindex [BAG_NAME]`.  Then run the command: `chmod +x src/trust_nonverbal_behavior_recognition/scripts/read-bag.py`. Now, from the workspace you can run `rosrun trust_nonverbal_behavior_recognition read-bag.py`. 
+
+Here it will prompt you for the bag name. You need to input just the name of the bag with no extensions. If the full name of the bag is `test.orig.bag`, all you need to put in is the name `test`. 
+
+### Post-processing:
+
+Since each Kinect is outputting its data to its own bag, we will then need to post-process the data. This can be done by merging the data based on the seat IDs of the Kinects, since both Kinects will be reading left to right so the seat IDs should be matched up.
+
+
 
 ### Publisher Component of data-parser
 After all information is received and analyzed, the data needed is published to a new topic ('Information'). The message is sent as a PersonArray, which is a PersonMessage array. PersonMessage contains specific fields:
